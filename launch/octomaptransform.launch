@@ -1,0 +1,29 @@
+<launch>
+ 
+  <!-- <node name="depth2octomap" pkg="depth2octomap" type="depth2octomap"/> -->
+
+  <node name="cam_frame_update" pkg="depth2octomap" type="cam_frame_update" output = "screen"/>
+
+  <!-- <node name="pointcloud_filter" pkg="depth2octomap" type="pointcloud_filter" output = "screen"/> -->
+  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
+
+  <node name="reset_node" pkg="depth2octomap" type="reset_node" output = "screen"/>
+
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+    <param name="resolution" value="0.05" />
+    <!-- resolution in meters per pixel -->
+    <param name="frame_id" type="string" value="base_link" />
+    <!-- <param name="frame_id" type="string" value="camera_link" /> -->
+    <!-- name of the fixed frame, needs to be "/map" for SLAM -->
+    <param name="sensor_model/max_range" value="100.0" />
+    <!-- max range / depth resolution of the kinect in meter -->
+    <param name="latch" value="true" />
+    <!-- max/min height for occupancy map, should be in meters -->
+    <!-- <param name="pointcloud_max_z" value="2.0" /> -->
+    <!-- <param name="pointcloud_min_z" value="-0.5" /> -->
+    <!-- topic from where pointcloud2 messages are subscribed -->
+    <!-- <remap from="/cloud_in" to="/pointcloud/output" /> -->
+    <remap from="/cloud_in" to="/pointcloud/filter" />
+  </node>
+ 
+</launch>
