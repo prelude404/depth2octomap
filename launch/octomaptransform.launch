@@ -2,10 +2,75 @@
  
   <!-- <node name="depth2octomap" pkg="depth2octomap" type="depth2octomap"/> -->
 
-  <node name="cam_frame_update" pkg="depth2octomap" type="cam_frame_update" output = "screen"/>
+  <!-- 启动 camera1 -->
+  <!-- roslaunch realsense2_camera rs_camera.launch camera:=cam_1 serial_no:=104422071236 align_depth:=true -->
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+      <arg name="camera" value="cam_1" />
+      <arg name="serial_no" value="104422071236" />
+      <arg name="align_depth" value="true" />
+  </include>
+
+  <!-- 启动 camera2 -->
+  <!-- roslaunch realsense2_camera rs_camera.launch camera:=cam_2 serial_no:=239722070592 align_depth:=true -->
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+      <arg name="camera" value="cam_2" />
+      <arg name="serial_no" value="239722070592" />
+      <arg name="align_depth" value="true" />
+  </include>
+
+  <!-- 等待 2.0 秒 -->
+  <node name="wait_node" pkg="std_msgs" type="Empty" output="screen" required="true">
+      <param name="timeout" value="2" />
+  </node>
+
+  <!-- <node name="cam_frame_update" pkg="depth2octomap" type="cam_frame_update" output = "screen"/> -->
 
   <!-- <node name="pointcloud_filter" pkg="depth2octomap" type="pointcloud_filter" output = "screen"/> -->
-  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
+  
+  <!-- <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/> -->
+
+  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output="screen">
+    <!-- 相机z轴的最大视野范围 -->
+    <param name="view_field" type="double" value="5.0" />
+    <!-- 输入相机的降采样点云数上限 -->
+    <param name="imput_num" type="int" value="4000" />
+    <!-- 体素滤波的单元格大小 -->
+    <param name="grid_size" type="double" value="0.05" />
+    <!-- 一级减速距离 -->
+    <param name="slow_dis1" type="double" value="0.65*2" />
+    <!-- 二级减速距离 -->
+    <param name="slow_dis2" type="double" value="0.65" />
+    <!-- 一级减速危险点云个数 -->
+    <param name="danger_num1" type="int" value="1000" />
+    <!-- 二级减速危险点云个数 -->
+    <param name="danger_num2" type="int" value="200" />
+    <!-- 机械臂连杆圆柱包络增长比例因子 -->
+    <param name="long_factor" type="double" value="0.3" />
+    <!-- 机械臂连杆1圆柱包络半径 -->
+    <param name="link1_radius" type="double" value="0.15" />
+    <!-- 机械臂连杆2圆柱包络半径 -->
+    <param name="link2_radius" type="double" value="0.15" />
+    <!-- 机械臂连杆3圆柱包络半径 -->
+    <param name="link3_radius" type="double" value="0.15" />
+    <!-- 机械臂连杆4圆柱包络半径 -->
+    <param name="link4_radius" type="double" value="0.12" />
+    <!-- 机械臂连杆5圆柱包络半径 -->
+    <param name="link5_radius" type="double" value="0.12" />
+    <!-- 机械臂连杆6圆柱包络半径 -->
+    <param name="link6_radius" type="double" value="0.12" />
+  </node>
+
+    <!-- pc_fuser.slow_dis1 = 0.65 * 2;
+    pc_fuser.slow_dis2 = 0.65;
+    pc_fuser.danger_num1 = 1000;
+    pc_fuser.danger_num2 = 200;
+    pc_fuser.long_factor = 0.3;
+    pc_fuser.tlr1 = 0.15;
+    pc_fuser.tlr2 = 0.15;
+    pc_fuser.tlr3 = 0.15;
+    pc_fuser.tlr4 = 0.12;
+    pc_fuser.tlr5 = 0.12;
+    pc_fuser.tlr6 = 0.12; -->
 
   <node name="reset_node" pkg="depth2octomap" type="reset_node" output = "screen"/>
 

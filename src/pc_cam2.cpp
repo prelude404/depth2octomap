@@ -8,6 +8,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <time.h>
 
 // Eigen 库
 #include <Eigen/Eigen>
@@ -26,6 +27,7 @@
 #include <pcl/point_cloud.h>
 // #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/filters/random_sample.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/common/transforms.h>
@@ -35,6 +37,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/registration/icp.h>
 
+time_t start, end;
 
 class camera
 {
@@ -51,6 +54,9 @@ public:
     Eigen::Matrix4d cam_to_base; // 储存cam2base
     void pic2cloud(); // 得到cam_pc, base_pc and cam_trans
     void cam2base(); // 相机坐标系转基坐标系
+    double z_far_lim;
+    int pc_num_lim;
+    double grid_size;
 private:
     double camera_factor = 1000;
     tf::TransformListener* listener; // 读取base2cam
@@ -107,14 +113,51 @@ void camera::pic2cloud()
     tf::transformTFToEigen(cam_trans, temp);
     cam_to_base = temp.matrix().cast<double>();
     
-    // pcl::transformPointCloud(*cam_pc, *base_pc, cam_to_base); // 不确定是base_to_cam还是cam_to_base
+    // pcl::transformPointCloud(*cam_pc, *base_pc, cam_to_base); // cam_to_base
 
     // 还需要运行时间和点云数量检测
-    // 随机降采样
-    // 直通滤波 + 体素滤波
+    
+    // 直通滤波
+    pcl::PassThrough<pcl::PointXYZRGB> pass_z;
+    pass_z.setInputCloud(cam_pc);
+    pass_z.setFilterFieldName("z");
+    pass_z.setFilterLimits(0.0,z_far_lim);
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr pass_z_pc;
+    pass_z.filter(*cam_pc);
 
     cam_pc->height = 1;
     cam_pc->width = cam_pc->points.size();
+    // ROS_INFO("Passed Cam_Z PointCloud Size = %i ",cam_pc->width);
+    
+    // 随机采样
+    // int result = (a > b) ? b : c;
+    bool random_flag = (cam_pc->width > pc_num_lim);
+    if(random_flag)
+    {
+        pcl::RandomSample<pcl::PointXYZRGB> rs;
+        rs.setInputCloud(cam_pc);
+        rs.setSample(pc_num_lim);
+        rs.filter(*cam_pc);
+        
+        cam_pc->height = 1;
+        cam_pc->width = cam_pc->points.size();
+        // ROS_INFO("Random Sampled PointCloud Size = %i ",cam_pc->width);
+    }
+    
+    // 体素滤波
+    start = clock();
+    pcl::VoxelGrid<pcl::PointXYZRGB> vox;
+    vox.setInputCloud(cam_pc);
+    vox.setLeafSize(grid_size, grid_size, grid_size);
+    vox.filter(*cam_pc);
+    
+    // ROS_INFO("PointCloud before Voxel Filtering: %i data points.",(raw_pc->width * raw_pc->height));
+    cam_pc->height = 1;
+    cam_pc->width = cam_pc->points.size();
+    ROS_INFO("Voxel Filtered PointCloud Size = %i ",cam_pc->width);
+    end = clock();
+    ROS_INFO("Voxel Filter Running Time is: %f secs", float(end-start)/CLOCKS_PER_SEC);
+
     cam_pc->is_dense = false;
 }
 
@@ -222,6 +265,8 @@ void pc_proc::filt_cloud()
 
 }
 
+
+
 void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cull_pc)
 {
     tf::StampedTransform trans1, trans2, trans3, trans4, trans5, trans6;
@@ -267,61 +312,61 @@ void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, p
     pcl::PointCloud<pcl::PointXYZRGB>::iterator index = merged_pc->begin();
     for(size_t i=0; i<merged_pc->size(); ++i)
     {
-      Eigen::Vector3d c;
-      c[0] = full_pc->points[i].x;
-      c[1] = full_pc->points[i].y;
-      c[2] = full_pc->points[i].z;
+        Eigen::Vector3d c;
+        c[0] = full_pc->points[i].x;
+        c[1] = full_pc->points[i].y;
+        c[2] = full_pc->points[i].z;
 
-      double dis = sqrt(pow(c[0],2.0)+pow(c[1],2)+pow(c[2],2));
+        double dis = sqrt(pow(c[0],2.0)+pow(c[1],2)+pow(c[2],2));
 
-      if(dis > slow_dis1)
-      {
-        continue;
-      }
+        if(dis > slow_dis1)
+        {
+          continue;
+        }
 
-      if(dis > slow_dis2)
-      {
-        obs_count1++;
-        continue;
-      }
-      
-      double dis1 = DistanceOfPointToLine(base, cp1, c);
-      if(dis1 < tlr1 && AngleJudge(c, base, cp1) && AngleJudge(c, cp1, base))
-      {
-        continue;
-      }
-      double dis2 = DistanceOfPointToLine(cp1, cp2, c);
-      if(dis2 < tlr2 && AngleJudge(c, cp1, cp2) && AngleJudge(c, cp2, cp1))
-      {
-        continue;
-      }
-      double dis3 = DistanceOfPointToLine(cp2, cp3, c);
-      if(dis3 < tlr3 && AngleJudge(c, cp2, cp3) && AngleJudge(c, cp3, cp2))
-      {
-        continue;
-      }
-      double dis4 = DistanceOfPointToLine(cp3, cp4, c);
-      if(dis4 < tlr4 && AngleJudge(c, cp3, cp4) && AngleJudge(c, cp4, cp3))
-      {
-        continue;
-      }
-      double dis5 = DistanceOfPointToLine(cp4, cp5, c);
-      if(dis5 < tlr5 && AngleJudge(c, cp4, cp5) && AngleJudge(c, cp5, cp4))
-      {
-        continue;
-      }
-      double dis6 = DistanceOfPointToLine(cp5, cp6, c);
-      if(dis6 < tlr6 && AngleJudge(c, cp5, cp6) && AngleJudge(c, cp6, cp5))
-      {
-        continue;
-      }
+        if(dis > slow_dis2)
+        {
+          obs_count1++;
+          continue;
+        }
+        
+        double dis1 = DistanceOfPointToLine(base, cp1, c);
+        if(dis1 < tlr1 && AngleJudge(c, base, cp1) && AngleJudge(c, cp1, base))
+        {
+          continue;
+        }
+        double dis2 = DistanceOfPointToLine(cp1, cp2, c);
+        if(dis2 < tlr2 && AngleJudge(c, cp1, cp2) && AngleJudge(c, cp2, cp1))
+        {
+          continue;
+        }
+        double dis3 = DistanceOfPointToLine(cp2, cp3, c);
+        if(dis3 < tlr3 && AngleJudge(c, cp2, cp3) && AngleJudge(c, cp3, cp2))
+        {
+          continue;
+        }
+        double dis4 = DistanceOfPointToLine(cp3, cp4, c);
+        if(dis4 < tlr4 && AngleJudge(c, cp3, cp4) && AngleJudge(c, cp4, cp3))
+        {
+          continue;
+        }
+        double dis5 = DistanceOfPointToLine(cp4, cp5, c);
+        if(dis5 < tlr5 && AngleJudge(c, cp4, cp5) && AngleJudge(c, cp5, cp4))
+        {
+          continue;
+        }
+        double dis6 = DistanceOfPointToLine(cp5, cp6, c);
+        if(dis6 < tlr6 && AngleJudge(c, cp5, cp6) && AngleJudge(c, cp6, cp5))
+        {
+          continue;
+        }
 
-      if(dis < slow_dis2)
-      {
-        obs_count2++;
-      }
+        if(dis < slow_dis2)
+        {
+          obs_count2++;
+        }
 
-      cull_pc->push_back(full_pc->points[i]);
+        cull_pc->push_back(full_pc->points[i]);
 
     }
 
@@ -329,19 +374,22 @@ void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, p
     cull_pc->width = cull_pc->points.size();
 
     if(obs_count2 > danger_num2)
-      {
+    {
         safe_status = 1;
         ROS_INFO("### 222-LEVEL SPEED DOWN ###");
-      }
-      else if(obs_count1 > danger_num1)
-      {
+    }
+    else if(obs_count1 > danger_num1)
+    {
         safe_status = 2;
         ROS_INFO("### 111-LEVEL SPEED DOWN ###");
-      }
-      else{
+    }
+    else{
         safe_status = 3;
         ROS_INFO("### SAFE ###");
-      }
+    }
+
+    ROS_INFO("Slow_down 1 Num = %i ",obs_count1);
+    ROS_INFO("Slow_down 2 Num (Self_Culled) = %i ",obs_count2);
 
     return;
 }
@@ -349,23 +397,23 @@ void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, p
 /*** 点到直线距离 ***/
 double pc_proc::DistanceOfPointToLine(Eigen::Vector3d a, Eigen::Vector3d b, Eigen::Vector3d s) 
 { 
-  // std::cout<<"a:"<<b->x<<b->y<<b->z<<std::endl;
-	double ab = sqrt(pow((a[0] - b[0]), 2.0) + pow((a[1] - b[1]), 2.0) + pow((a[2] - b[2]), 2.0));
-	double as = sqrt(pow((a[0] - s[0]), 2.0) + pow((a[1] - s[1]), 2.0) + pow((a[2] - s[2]), 2.0));
-	double bs = sqrt(pow((s[0] - b[0]), 2.0) + pow((s[1] - b[1]), 2.0) + pow((s[2] - b[2]), 2.0));
-	double cos_A = (pow(as, 2.0) + pow(ab, 2.0) - pow(bs, 2.0)) / (2 * ab*as);
-	double sin_A = sqrt(1 - pow(cos_A, 2.0));
-  // std::cout<<"ab:"<<ab<<"as:"<<as<<"bs:"<<bs<<"cosA:"<<cos_A<<std::endl;
-	return as*sin_A; 
+    // std::cout<<"a:"<<b->x<<b->y<<b->z<<std::endl;
+    double ab = sqrt(pow((a[0] - b[0]), 2.0) + pow((a[1] - b[1]), 2.0) + pow((a[2] - b[2]), 2.0));
+    double as = sqrt(pow((a[0] - s[0]), 2.0) + pow((a[1] - s[1]), 2.0) + pow((a[2] - s[2]), 2.0));
+    double bs = sqrt(pow((s[0] - b[0]), 2.0) + pow((s[1] - b[1]), 2.0) + pow((s[2] - b[2]), 2.0));
+    double cos_A = (pow(as, 2.0) + pow(ab, 2.0) - pow(bs, 2.0)) / (2 * ab*as);
+    double sin_A = sqrt(1 - pow(cos_A, 2.0));
+    // std::cout<<"ab:"<<ab<<"as:"<<as<<"bs:"<<bs<<"cosA:"<<cos_A<<std::endl;
+    return as*sin_A; 
 }
 
 /*** 判断<ABC为钝角(0)或锐角(1) ***/
 bool pc_proc::AngleJudge(Eigen::Vector3d a, Eigen::Vector3d b, Eigen::Vector3d c)
 {
-  double inner = (a[0] - (1+long_factor)*b[0] + long_factor*c[0])*(c[0] - b[0]) + (a[1] - (1+long_factor)*b[1] + long_factor*c[1])*(c[1] - b[1]) + (a[2] - (1+long_factor)*b[2] + long_factor*c[2])*(c[2] - b[2]);
-  if(inner > 0) //锐角
-  {return true;}
-  else{return false;}
+    double inner = (a[0] - (1+long_factor)*b[0] + long_factor*c[0])*(c[0] - b[0]) + (a[1] - (1+long_factor)*b[1] + long_factor*c[1])*(c[1] - b[1]) + (a[2] - (1+long_factor)*b[2] + long_factor*c[2])*(c[2] - b[2]);
+    if(inner > 0) //锐角
+    {return true;}
+    else{return false;}
 }
 
 camera cam1(1),cam2(2);
@@ -444,31 +492,46 @@ int main(int argc, char **argv)
     cam1.fx = 606.3751831054688;
     cam1.fy = 604.959716796875;
 
+    nh.getParam("view_field",cam1.z_far_lim);
+    nh.getParam("imput_num",cam1.pc_num_lim);
+    nh.getParam("grid_size",cam1.grid_size);
+
     cam2.cx = 315.4583435058594;
     cam2.cx = 255.28733825683594;
     cam2.fx = 608.7494506835938;
     cam2.fy = 608.6277465820312;
 
-    pc_fuser.slow_dis1 = 0.65 * 2;
-    pc_fuser.slow_dis2 = 0.65;
-    pc_fuser.danger_num1 = 1000;
-    pc_fuser.danger_num2 = 200;
-    pc_fuser.long_factor = 0.3;
-    pc_fuser.tlr1 = 0.15;
-    pc_fuser.tlr2 = 0.15;
-    pc_fuser.tlr3 = 0.15;
-    pc_fuser.tlr4 = 0.12;
-    pc_fuser.tlr5 = 0.12;
-    pc_fuser.tlr6 = 0.12;
+    nh.getParam("view_field",cam2.z_far_lim);
+    nh.getParam("imput_num",cam2.pc_num_lim);
+    nh.getParam("grid_size",cam2.grid_size);
 
-    image_transport::ImageTransport it(nh);
-    image_transport::Subscriber sub1_color = it.subscribe(("/cam_"+cam1.cam_num+"/color/image_raw"), 1, color_cb1);
-    image_transport::Subscriber sub1_depth = it.subscribe(("/cam_"+cam1.cam_num+"/depth/image_rect_raw"), 1, depth_cb1);
+
+    nh.getParam("slow_dis1",pc_fuser.slow_dis1);
+    nh.getParam("slow_dis2",pc_fuser.slow_dis2);
+    nh.getParam("danger_num1",pc_fuser.danger_num1);
+    nh.getParam("danger_num2",pc_fuser.danger_num2);
+    nh.getParam("long_factor",pc_fuser.long_factor);
+    nh.getParam("link1_radius",pc_fuser.tlr1);
+    nh.getParam("link2_radius",pc_fuser.tlr2);
+    nh.getParam("link3_radius",pc_fuser.tlr3);
+    nh.getParam("link4_radius",pc_fuser.tlr4);
+    nh.getParam("link5_radius",pc_fuser.tlr5);
+    nh.getParam("link6_radius",pc_fuser.tlr6);
 
     image_transport::ImageTransport it1(nh);
-    image_transport::Subscriber sub2_color = it1.subscribe(("/cam_"+cam2.cam_num+"/color/image_raw"), 1, color_cb2);
-    image_transport::Subscriber sub2_depth = it1.subscribe(("/cam_"+cam2.cam_num+"/depth/image_rect_raw"), 1, depth_cb2);
+    image_transport::Subscriber sub1_color = it1.subscribe(("/cam_"+cam1.cam_num+"/color/image_raw"), 1, color_cb1);
+    image_transport::Subscriber sub1_depth = it1.subscribe(("/cam_"+cam1.cam_num+"/depth/image_rect_raw"), 1, depth_cb1);
 
+    image_transport::ImageTransport it2(nh);
+    image_transport::Subscriber sub2_color = it2.subscribe(("/cam_"+cam2.cam_num+"/color/image_raw"), 1, color_cb2);
+    image_transport::Subscriber sub2_depth = it2.subscribe(("/cam_"+cam2.cam_num+"/depth/image_rect_raw"), 1, depth_cb2);
+
+    ros::Publisher pointcloud_publisher = nh.advertise<sensor_msgs::PointCloud2>("/pointcloud/merged", 1);
+    ros::Publisher safe_status_publisher = nh.advertise<std_msgs::Int32>("/safe_status",1);
+
+    sensor_msgs::PointCloud2 pub_pointcloud;
+    std_msgs::Int32 safe_msg;
+    
     ros::Rate loop_rate(100.0);
 
     while(ros::ok())
@@ -478,7 +541,17 @@ int main(int argc, char **argv)
 
         pc_fuser.icp_algo(cam1, cam2);
         pc_fuser.merge_cloud(cam1,cam2);
+        pc_fuser.filt_cloud();
 
+        // 发布安全状态（1二级减速；2一级减速；3安全）
+        safe_msg.data = pc_fuser.safe_status;
+        safe_status_publisher.publish(safe_msg);
+
+        // 发布用于建图的最终结果点云
+        pcl::toROSMsg(*pc_fuser.merged_pc,pub_pointcloud);  //之后改为最终的点云融合滤波结果
+        pub_pointcloud.header.frame_id = "base_link";
+        pub_pointcloud.header.stamp = ros::Time::now();
+        pointcloud_publisher.publish(pub_pointcloud);
     }
     return 0;
 }
