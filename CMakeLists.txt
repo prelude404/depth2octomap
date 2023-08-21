@@ -39,3 +39,6 @@ target_link_libraries(pc_cam2 ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS
 
 add_executable(reset_node src/reset_node.cpp)
 target_link_libraries(reset_node ${catkin_LIBRARIES})
+
+add_executable(sim_cam_frame src/sim_cam_frame.cpp)
+target_link_libraries(sim_cam_frame ${catkin_LIBRARIES})
