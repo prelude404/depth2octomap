@@ -16,5 +16,6 @@
     "files.associations": {
         "cmath": "cpp",
         "core": "cpp"
-    }
+    },
+    "ros.distro": "noetic"
 }

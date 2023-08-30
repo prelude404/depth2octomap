@@ -10,6 +10,8 @@
 #include <vector>
 #include <time.h>
 
+#include <depth2octomap/Masks.h>
+
 // Eigen 库
 #include <Eigen/Eigen>
 #include <Eigen/Core>
@@ -65,6 +67,7 @@ public:
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cam_pc,base_pc; // 相机和基坐标系点云
     Eigen::Matrix4d cam_to_base; // 储存cam2base
     void pic2cloud(); // 得到cam_pc, base_pc and cam_trans
+    void pic2human(); // 得到人目标的实例分割点云
     void cam2base(); // 相机坐标系转基坐标系
     double z_far_lim;
     int pc_num_lim;
@@ -188,6 +191,11 @@ void camera::pic2cloud()
 
     end = clock();
     ROS_INFO("[%s] Total Running Time is: %f secs", cam_num.c_str(), static_cast<float>(end - start) / CLOCKS_PER_SEC);
+
+}
+
+void camera::pic2human()
+{
 
 }
 
@@ -561,7 +569,7 @@ void color_cb1(const sensor_msgs::ImageConstPtr& color_msg)
     try
     {
         cam1.color_ptr = cv_bridge::toCvCopy(color_msg, sensor_msgs::image_encodings::BGR8);
-        cv::waitKey(1050); // 不断刷新图像，频率时间为int delay，单位为ms
+        cv::waitKey(50); // 不断刷新图像，频率时间为int delay，单位为ms
     }
     catch (cv_bridge::Exception& e )
     {
@@ -576,7 +584,7 @@ void depth_cb1(const sensor_msgs::ImageConstPtr& depth_msg)
     try
     {
         cam1.depth_ptr = cv_bridge::toCvCopy(depth_msg, sensor_msgs::image_encodings::TYPE_32FC1);
-        cv::waitKey(1050);
+        cv::waitKey(50);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -592,7 +600,7 @@ void color_cb2(const sensor_msgs::ImageConstPtr& color_msg)
     try
     {
         cam2.color_ptr = cv_bridge::toCvCopy(color_msg, sensor_msgs::image_encodings::BGR8);
-        cv::waitKey(1050); // 不断刷新图像，频率时间为int delay，单位为ms
+        cv::waitKey(50); // 不断刷新图像，频率时间为int delay，单位为ms
     }
     catch (cv_bridge::Exception& e )
     {
@@ -607,7 +615,7 @@ void depth_cb2(const sensor_msgs::ImageConstPtr& depth_msg)
     try
     {
         cam2.depth_ptr = cv_bridge::toCvCopy(depth_msg, sensor_msgs::image_encodings::TYPE_32FC1);
-        cv::waitKey(1050);
+        cv::waitKey(50);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -617,6 +625,18 @@ void depth_cb2(const sensor_msgs::ImageConstPtr& depth_msg)
     cam2.depth_pic = cam2.depth_ptr->image;
 }
 
+/*** CAM1 Human Mask处理 ***/
+void human_cb1(const depth2octomap::Masks& mask_msg)
+{
+    // if(!mask_msg.masks.empty())
+}
+
+/*** CAM1 Human Mask处理 ***/
+void human_cb2(const depth2octomap::Masks& mask_msg)
+{
+
+
+}
 
 int main(int argc, char **argv)
 {
@@ -696,6 +716,8 @@ int main(int argc, char **argv)
     // image_transport::Subscriber sub2_depth = it2.subscribe(("/cam_"+cam2.cam_num+"/depth/image_rect_raw"), 1, depth_cb2);
     image_transport::Subscriber sub2_depth = it2.subscribe(("/cam_"+cam2.cam_num+"/aligned_depth_to_color/image_raw"), 1, depth_cb2);
 
+    image_transport::Subscriber sub1_human = it1.subscribe(("/cam_"+cam1.cam_num+"/human_mask"), 1, human_cb1);
+    image_transport::Subscriber sub2_human = it2.subscribe(("/cam_"+cam2.cam_num+"/human_mask"), 1, human_cb2);
 
     // 发布合成点云和安全评级
     // ros::Publisher merge_pub = nh.advertise<sensor_msgs::PointCloud2>("/pointcloud/merged", 1);

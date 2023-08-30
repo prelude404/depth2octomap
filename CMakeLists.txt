@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   rostime
   sensor_msgs
+  message_generation
   message_filters
   cv_bridge
   image_transport
@@ -20,8 +21,25 @@ find_package(OpenCV REQUIRED)
 find_package(OpenMP)
 find_package(Eigen3 REQUIRED)
 
+add_message_files(
+  FILES
+  Masks.msg
+)
 
-catkin_package()
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  sensor_msgs
+)
+
+
+catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES seg_ros
+  CATKIN_DEPENDS rospy std_msgs sensor_msgs
+  message_runtime
+#  DEPENDS system_lib
+)
  
 include_directories(${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${OPENCV_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
  
