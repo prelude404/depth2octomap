@@ -13,14 +13,26 @@ int main(int argc, char **argv)
     Eigen::Matrix4d cam1_to_base, cam2_to_base;
     tf::StampedTransform cam1_trans, cam2_trans;
     
-    cam1_to_base << 0, 0, 1, 0,
-                   -1, 0, 0, 0.20,
-                    0,-1, 0, 0,
-                    0, 0, 0, 1;
+    // /*** CAM_2在CAM_1右侧40.0cm***/
+    // cam1_to_base << 0, 0, 1, 0,
+    //                -1, 0, 0, 0.20,
+    //                 0,-1, 0, 0,
+    //                 0, 0, 0, 1;
+    // 
+    // cam2_to_base << 0, 0, 1, 0,
+    //                -1, 0, 0,-0.20,
+    //                 0,-1, 0, 0,
+    //                 0, 0, 0, 1;
 
-    cam2_to_base << 0, 0, 1, 0,
-                   -1, 0, 0,-0.20,
-                    0,-1, 0, 0,
+    /*** CAM_2在CAM_1右侧40.0cm，朝向真实机械臂***/
+    cam1_to_base << 0, 0,-1, 0,
+                    1, 0, 0,-0.20,
+                    0,-1, 0, 0.10,
+                    0, 0, 0, 1;
+    
+    cam2_to_base << 0, 0,-1, 0,
+                    1, 0, 0, 0.20,
+                    0,-1, 0, 0.10,
                     0, 0, 0, 1;
 
     Eigen::Vector3d cam1_pos = cam1_to_base.block<3,1>(0,3);

@@ -625,18 +625,18 @@ void depth_cb2(const sensor_msgs::ImageConstPtr& depth_msg)
     cam2.depth_pic = cam2.depth_ptr->image;
 }
 
-/*** CAM1 Human Mask处理 ***/
-void human_cb1(const depth2octomap::Masks& mask_msg)
-{
-    // if(!mask_msg.masks.empty())
-}
+// /*** CAM1 Human Mask处理 ***/
+// void human_cb1(const depth2octomap::Masks& mask_msg)
+// {
+//     // if(!mask_msg.masks.empty())
+// }
 
-/*** CAM1 Human Mask处理 ***/
-void human_cb2(const depth2octomap::Masks& mask_msg)
-{
+// /*** CAM1 Human Mask处理 ***/
+// void human_cb2(const depth2octomap::Masks& mask_msg)
+// {
 
 
-}
+// }
 
 int main(int argc, char **argv)
 {
@@ -716,12 +716,12 @@ int main(int argc, char **argv)
     // image_transport::Subscriber sub2_depth = it2.subscribe(("/cam_"+cam2.cam_num+"/depth/image_rect_raw"), 1, depth_cb2);
     image_transport::Subscriber sub2_depth = it2.subscribe(("/cam_"+cam2.cam_num+"/aligned_depth_to_color/image_raw"), 1, depth_cb2);
 
-    image_transport::Subscriber sub1_human = it1.subscribe(("/cam_"+cam1.cam_num+"/human_mask"), 1, human_cb1);
-    image_transport::Subscriber sub2_human = it2.subscribe(("/cam_"+cam2.cam_num+"/human_mask"), 1, human_cb2);
+    // image_transport::Subscriber sub1_human = it1.subscribe(("/cam_"+cam1.cam_num+"/human_mask"), 1, human_cb1);
+    // image_transport::Subscriber sub2_human = it2.subscribe(("/cam_"+cam2.cam_num+"/human_mask"), 1, human_cb2);
 
     // 发布合成点云和安全评级
-    // ros::Publisher merge_pub = nh.advertise<sensor_msgs::PointCloud2>("/pointcloud/merged", 1);
-    ros::Publisher merge_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_cloud", 1);
+    ros::Publisher merge_pub = nh.advertise<sensor_msgs::PointCloud2>("/pointcloud/merged", 1);
+    // ros::Publisher merge_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_cloud", 1);
     ros::Publisher safe_status_publisher = nh.advertise<std_msgs::Int32>("/safe_status",1);
 
     // 发布两台相机各自的点云
