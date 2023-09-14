@@ -18,7 +18,7 @@
       <arg name="align_depth" value="true" />
   </include> -->
 
-  <node name="sim_cam_frame" pkg="depth2octomap" type="sim_cam_frame" output = "screen"/>
+  <!-- <node name="sim_cam_frame" pkg="depth2octomap" type="sim_cam_frame" output = "screen"/> -->
 
   <!-- 等待 2.0 秒 -->
   <!-- <node name="wait_node" pkg="std_msgs" type="Empty" output="screen" required="true">
@@ -30,7 +30,6 @@
   <!-- <node name="pointcloud_filter" pkg="depth2octomap" type="pointcloud_filter" output = "screen"/> -->
   
   <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
-
   <!-- 相机z轴的最大视野范围 -->
   <param name="view_field" type="double" value="1.4" />
   <!-- 输入相机的降采样点云数上限 -->
@@ -38,9 +37,9 @@
   <!-- 体素滤波的单元格大小 -->
   <param name="grid_size" type="double" value="0.02" />
   <!-- 一级减速距离 -->
-  <param name="slow_dis1" type="double" value="1.30" />
+  <param name="slow_dis1" type="double" value="1.60" />
   <!-- 二级减速距离 -->
-  <param name="slow_dis2" type="double" value="0.65" />
+  <param name="slow_dis2" type="double" value="0.80" />
   <!-- 一级减速危险点云个数 -->
   <param name="danger_num1" type="int" value="1000" />
   <!-- 二级减速危险点云个数 -->
@@ -63,7 +62,7 @@
   <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output="screen">
   </node>
 
-  <!-- <node name="reset_node" pkg="depth2octomap" type="reset_node" output = "screen"/> -->
+  <node name="reset_node" pkg="depth2octomap" type="reset_node" output = "screen"/>
 
   <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
     <param name="resolution" value="0.05" />
@@ -79,7 +78,7 @@
     <!-- <param name="pointcloud_min_z" value="-0.5" /> -->
     <!-- topic from where pointcloud2 messages are subscribed -->
     <!-- <remap from="/cloud_in" to="/pointcloud/output" /> -->
-    <remap from="/cloud_in" to="/pointcloud/filter" />
+    <remap from="/cloud_in" to="/pointcloud/merged" />
   </node>
  
 </launch>

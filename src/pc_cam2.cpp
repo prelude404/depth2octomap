@@ -39,6 +39,9 @@
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/registration/icp.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/extract_indices.h>
+
 
 time_t start, end;
 
@@ -300,7 +303,7 @@ public:
     }
     
     Eigen::Matrix4d cam1_base,cam2_base,cam1_cam2,cam2_cam1;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr merged_pc,filter_pc;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr merged_pc,filter_pc,clustered_cloud;
 
     void icp_algo(camera& cam1, camera& cam2);
 
@@ -482,139 +485,37 @@ void pc_proc::merge_cloud(camera& cam1, camera& cam2)
     filter_pc->height = 1;
     filter_pc->width = filter_pc->points.size();
     ROS_INFO("Passed Table PointCloud Size = %i ",filter_pc->width);
-}
 
-// void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cull_pc)
-// {
-//     tf::StampedTransform trans1, trans2, trans3, trans4, trans5, trans6;
-//     Eigen::Vector3d cp1, cp2, cp3, cp4, cp5, cp6;
+    /// 创建kd树
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+    tree->setInputCloud(filter_pc);
+    /// 设置分割参数, 执行欧式聚类分割
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    ec.setClusterTolerance(0.3);  // 设置近邻搜索的半径
+    ec.setMinClusterSize(10);     // 设置最小聚类点数
+    ec.setMinClusterSize(99999);     // 设置最大聚类点数
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(filter_pc);
+    ec.extract(cluster_indices);
+    
+    clustered_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-//     listener1->waitForTransform("/base_link", "/link_1",ros::Time(0.0),ros::Duration(1.0));
-//     listener1->lookupTransform("/base_link", "/link_1",ros::Time(0.0),trans1);
-//     listener2->waitForTransform("/base_link", "/link_2",ros::Time(0.0),ros::Duration(1.0));
-//     listener2->lookupTransform("/base_link", "/link_2",ros::Time(0.0),trans2);
-//     listener3->waitForTransform("/base_link", "/link_3",ros::Time(0.0),ros::Duration(1.0));
-//     listener3->lookupTransform("/base_link", "/link_3",ros::Time(0.0),trans3);
-//     listener4->waitForTransform("/base_link", "/link_4",ros::Time(0.0),ros::Duration(1.0));
-//     listener4->lookupTransform("/base_link", "/link_4",ros::Time(0.0),trans4);
-//     listener5->waitForTransform("/base_link", "/link_5",ros::Time(0.0),ros::Duration(1.0));
-//     listener5->lookupTransform("/base_link", "/link_5",ros::Time(0.0),trans5);
-//     listener6->waitForTransform("/base_link", "/link_6",ros::Time(0.0),ros::Duration(1.0));
-//     listener6->lookupTransform("/base_link", "/link_6",ros::Time(0.0),trans6);
+    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
+    {       
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-//     cp1[0] = double(trans1.getOrigin().x());
-//     cp1[1] = double(trans1.getOrigin().y());
-//     cp1[2] = double(trans1.getOrigin().z());
-
-//     cp2[0] = double(trans2.getOrigin().x());
-//     cp2[1] = double(trans2.getOrigin().y());
-//     cp2[2] = double(trans2.getOrigin().z());
-
-//     cp3[0] = double(trans3.getOrigin().x());
-//     cp3[1] = double(trans3.getOrigin().y());
-//     cp3[2] = double(trans3.getOrigin().z());
-
-//     cp4[0] = double(trans4.getOrigin().x());
-//     cp4[1] = double(trans4.getOrigin().y());
-//     cp4[2] = double(trans4.getOrigin().z());
-
-//     cp5[0] = double(trans5.getOrigin().x());
-//     cp5[1] = double(trans5.getOrigin().y());
-//     cp5[2] = double(trans5.getOrigin().z());
-
-//     cp6[0] = double(trans6.getOrigin().x());
-//     cp6[1] = double(trans6.getOrigin().y());
-//     cp6[2] = double(trans6.getOrigin().z());
-
-//     Eigen::Vector3d base(0.0, 0.0, 0.0);
-
-//     int obs_count1 = 0;
-//     int obs_count2 = 0;
-
-//     pcl::PointCloud<pcl::PointXYZRGB>::iterator index = merged_pc->begin();
-//     for(size_t i=0; i<merged_pc->size(); ++i)
-//     {
-//         Eigen::Vector3d c;
-//         c[0] = full_pc->points[i].x;
-//         c[1] = full_pc->points[i].y;
-//         c[2] = full_pc->points[i].z;
-
-//         double dis = sqrt(pow(c[0],2.0)+pow(c[1],2)+pow(c[2],2));
-
-//         if(dis > slow_dis1)
-//         {
-//           continue;
-//         }
-
-//         if(dis > slow_dis2)
-//         {
-//           obs_count1++;
-//           continue;
-//         }
+        // 提取当前簇的点
+        pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+        extract.setInputCloud(filter_pc);
+        pcl::PointIndices::Ptr cluster_indices(new pcl::PointIndices(*it));
+        extract.setIndices(cluster_indices);
+        extract.filter(*cluster_cloud);
         
-//         double dis1 = DistanceOfPointToLine(base, cp1, c);
-//         if(dis1 < tlr1 && AngleJudge(c, base, cp1) && AngleJudge(c, cp1, base))
-//         {
-//           continue;
-//         }
-//         double dis2 = DistanceOfPointToLine(cp1, cp2, c);
-//         if(dis2 < tlr2 && AngleJudge(c, cp1, cp2) && AngleJudge(c, cp2, cp1))
-//         {
-//           continue;
-//         }
-//         double dis3 = DistanceOfPointToLine(cp2, cp3, c);
-//         if(dis3 < tlr3 && AngleJudge(c, cp2, cp3) && AngleJudge(c, cp3, cp2))
-//         {
-//           continue;
-//         }
-//         double dis4 = DistanceOfPointToLine(cp3, cp4, c);
-//         if(dis4 < tlr4 && AngleJudge(c, cp3, cp4) && AngleJudge(c, cp4, cp3))
-//         {
-//           continue;
-//         }
-//         double dis5 = DistanceOfPointToLine(cp4, cp5, c);
-//         if(dis5 < tlr5 && AngleJudge(c, cp4, cp5) && AngleJudge(c, cp5, cp4))
-//         {
-//           continue;
-//         }
-//         double dis6 = DistanceOfPointToLine(cp5, cp6, c);
-//         if(dis6 < tlr6 && AngleJudge(c, cp5, cp6) && AngleJudge(c, cp6, cp5))
-//         {
-//           continue;
-//         }
-
-//         if(dis < slow_dis2)
-//         {
-//           obs_count2++;
-//         }
-
-//         cull_pc->push_back(full_pc->points[i]);
-
-//     }
-
-//     cull_pc->height = 1;
-//     cull_pc->width = cull_pc->points.size();
-
-//     if(obs_count2 > danger_num2)
-//     {
-//         safe_status = 1;
-//         ROS_INFO("### 222-LEVEL SPEED DOWN ###");
-//     }
-//     else if(obs_count1 > danger_num1)
-//     {
-//         safe_status = 2;
-//         ROS_INFO("### 111-LEVEL SPEED DOWN ###");
-//     }
-//     else{
-//         safe_status = 3;
-//         ROS_INFO("### SAFE ###");
-//     }
-
-//     ROS_INFO("Slow_down 1 Num = %i ",obs_count1);
-//     ROS_INFO("Slow_down 2 Num (Self_Culled) = %i ",obs_count2);
-
-//     return;
-// }
+        // 将当前簇的点添加到 clustered_cloud 中
+        *clustered_cloud += *cluster_cloud;
+    }
+}
 
 void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cull_pc)
 {

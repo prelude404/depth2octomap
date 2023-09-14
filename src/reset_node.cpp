@@ -15,7 +15,7 @@ int main(int argc, char  *argv[])
         std_srvs::Empty empty;
 
         bool flag =  client.call(empty);
-        usleep(5*1000000); //us
+        usleep(0.5*1000000); //us
     // 7 处理响应
     }
    
