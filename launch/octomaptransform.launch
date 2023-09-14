@@ -18,7 +18,7 @@
       <arg name="align_depth" value="true" />
   </include> -->
 
-  <!-- <node name="sim_cam_frame" pkg="depth2octomap" type="sim_cam_frame" output = "screen"/> -->
+  <node name="sim_cam_frame" pkg="depth2octomap" type="sim_cam_frame" output = "screen"/>
 
   <!-- 等待 2.0 秒 -->
   <!-- <node name="wait_node" pkg="std_msgs" type="Empty" output="screen" required="true">
@@ -29,7 +29,8 @@
 
   <!-- <node name="pointcloud_filter" pkg="depth2octomap" type="pointcloud_filter" output = "screen"/> -->
   
-  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
+  <!-- <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/> -->
+
   <!-- 相机z轴的最大视野范围 -->
   <param name="view_field" type="double" value="1.4" />
   <!-- 输入相机的降采样点云数上限 -->
@@ -49,18 +50,18 @@
   <!-- 机械臂连杆1圆柱包络半径 -->
   <param name="link1_radius" type="double" value="0.065" />
   <!-- 机械臂连杆2圆柱包络半径 -->
-  <param name="link2_radius" type="double" value="0.07" />
+  <param name="link2_radius" type="double" value="0.1" />
   <!-- 机械臂连杆3圆柱包络半径 -->
-  <param name="link3_radius" type="double" value="0.06" />
+  <param name="link3_radius" type="double" value="0.1" />
   <!-- 机械臂连杆4圆柱包络半径 -->
-  <param name="link4_radius" type="double" value="0.06" />
+  <param name="link4_radius" type="double" value="0.1" />
   <!-- 机械臂连杆5圆柱包络半径 -->
-  <param name="link5_radius" type="double" value="0.05" />
+  <param name="link5_radius" type="double" value="0.08" />
   <!-- 机械臂连杆6圆柱包络半径 -->
-  <param name="link6_radius" type="double" value="0.03" />
+  <param name="link6_radius" type="double" value="0.08" />
 
-  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output="screen">
-  </node>
+  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
+
 
   <node name="reset_node" pkg="depth2octomap" type="reset_node" output = "screen"/>
 

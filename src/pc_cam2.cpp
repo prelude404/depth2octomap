@@ -189,6 +189,7 @@ void camera::pic2cloud()
 
     // cam_pc.reset();
     cam_pc = vox_pc;
+    // cam_pc = pass_z_pc;
 
     base_pc.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::transformPointCloud(*cam_pc, *base_pc, cam_to_base); // cam_to_base
@@ -275,7 +276,7 @@ public:
         point61.header.frame_id = "/link_6";
         point61.point.x = 0.0;
         point61.point.y = 0.0;
-        point61.point.z = 0.0;
+        point61.point.z = 0.15;
         point62.header.frame_id = "/link_6";
         point62.point.x = 0.0;
         point62.point.y = 0.0;
@@ -479,26 +480,29 @@ void pc_proc::merge_cloud(camera& cam1, camera& cam2)
     pcl::PassThrough<pcl::PointXYZRGB> pass1;
     pass1.setInputCloud(culled_pc);
     pass1.setFilterFieldName("z");
-    pass1.setFilterLimits(0.05, 1.30);
+    pass1.setFilterLimits(0.00, 1.30);
     pass1.filter(*filter_pc);
 
     filter_pc->height = 1;
     filter_pc->width = filter_pc->points.size();
     ROS_INFO("Passed Table PointCloud Size = %i ",filter_pc->width);
 
-    /// 创建kd树
+    // 欧式聚类去除单个孤立点云
+    // 创建kd树
     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>);
     tree->setInputCloud(filter_pc);
-    /// 设置分割参数, 执行欧式聚类分割
+    // 设置分割参数, 执行欧式聚类分割
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-    ec.setClusterTolerance(0.3);  // 设置近邻搜索的半径
+    ec.setClusterTolerance(0.05);  // 设置近邻搜索的半径
     ec.setMinClusterSize(10);     // 设置最小聚类点数
-    ec.setMinClusterSize(99999);     // 设置最大聚类点数
+    ec.setMaxClusterSize(99999);     // 设置最大聚类点数
     ec.setSearchMethod(tree);
     ec.setInputCloud(filter_pc);
     ec.extract(cluster_indices);
-    
+
+    ROS_INFO("Number of Indices: %li",cluster_indices.size());
+
     clustered_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
 
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
@@ -907,7 +911,7 @@ int main(int argc, char **argv)
     //     safe_status_publisher.publish(safe_msg);
 
         // 发布用于建图的最终结果点云
-        pcl::toROSMsg(*pc_fuser.filter_pc,merge_msg);  //之后改为最终的点云融合滤波结果
+        pcl::toROSMsg(*pc_fuser.clustered_cloud,merge_msg);  //之后改为最终的点云融合滤波结果
         merge_msg.header.frame_id = "base_link";
         merge_msg.header.stamp = ros::Time::now();
         merge_pub.publish(merge_msg);
