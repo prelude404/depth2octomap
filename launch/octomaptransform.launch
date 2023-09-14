@@ -29,7 +29,7 @@
 
   <!-- <node name="pointcloud_filter" pkg="depth2octomap" type="pointcloud_filter" output = "screen"/> -->
   
-  <!-- <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/> -->
+  <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output = "screen"/>
 
   <!-- 相机z轴的最大视野范围 -->
   <param name="view_field" type="double" value="1.4" />
@@ -48,17 +48,17 @@
   <!-- 机械臂连杆圆柱包络增长比例因子 -->
   <param name="long_factor" type="double" value="0.3" />
   <!-- 机械臂连杆1圆柱包络半径 -->
-  <param name="link1_radius" type="double" value="0.15" />
+  <param name="link1_radius" type="double" value="0.065" />
   <!-- 机械臂连杆2圆柱包络半径 -->
-  <param name="link2_radius" type="double" value="0.15" />
+  <param name="link2_radius" type="double" value="0.07" />
   <!-- 机械臂连杆3圆柱包络半径 -->
-  <param name="link3_radius" type="double" value="0.15" />
+  <param name="link3_radius" type="double" value="0.06" />
   <!-- 机械臂连杆4圆柱包络半径 -->
-  <param name="link4_radius" type="double" value="0.12" />
+  <param name="link4_radius" type="double" value="0.06" />
   <!-- 机械臂连杆5圆柱包络半径 -->
-  <param name="link5_radius" type="double" value="0.12" />
+  <param name="link5_radius" type="double" value="0.05" />
   <!-- 机械臂连杆6圆柱包络半径 -->
-  <param name="link6_radius" type="double" value="0.12" />
+  <param name="link6_radius" type="double" value="0.03" />
 
   <node name="pc_cam2" pkg="depth2octomap" type="pc_cam2" output="screen">
   </node>

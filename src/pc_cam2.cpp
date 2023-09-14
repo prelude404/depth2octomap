@@ -9,6 +9,7 @@
 #include <iostream>
 #include <vector>
 #include <time.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <depth2octomap/Masks.h>
 
@@ -222,6 +223,60 @@ public:
         listener_21 = lis_21;
 
         merged_pc.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+        point11.header.frame_id = "/link_1";
+        point11.point.x = 0.0;
+        point11.point.y = 0.0;
+        point11.point.z = 0.1;
+        point12.header.frame_id = "/link_1";
+        point12.point.x = 0.0;
+        point12.point.y = 0.0;
+        point12.point.z = -0.1;
+
+        point21.header.frame_id = "/link_2";
+        point21.point.x = 0.0;
+        point21.point.y = 0.0;
+        point21.point.z = -0.145;
+        point22.header.frame_id = "/link_2";
+        point22.point.x = 0.425;
+        point22.point.y = 0.0;
+        point22.point.z = -0.145;
+
+        point31.header.frame_id = "/link_3";
+        point31.point.x = 0.0;
+        point31.point.y = 0.0;
+        point31.point.z = 0.0;
+        point32.header.frame_id = "/link_3";
+        point32.point.x = 0.24;
+        point32.point.y = 0.0;
+        point32.point.z = 0.0;
+
+        point41.header.frame_id = "/link_4";
+        point41.point.x = 0.0;
+        point41.point.y = 0.0;
+        point41.point.z = 0.0;
+        point42.header.frame_id = "/link_4";
+        point42.point.x = 0.0;
+        point42.point.y = 0.0;
+        point42.point.z = 0.15;
+
+        point51.header.frame_id = "/link_5";
+        point51.point.x = 0.0;
+        point51.point.y = 0.0;
+        point51.point.z = 0.0;
+        point52.header.frame_id = "/link_5";
+        point52.point.x = 0.0;
+        point52.point.y = 0.0;
+        point52.point.z = -0.21;
+
+        point61.header.frame_id = "/link_6";
+        point61.point.x = 0.0;
+        point61.point.y = 0.0;
+        point61.point.z = 0.0;
+        point62.header.frame_id = "/link_6";
+        point62.point.x = 0.0;
+        point62.point.y = 0.0;
+        point62.point.z = -0.18;
     }
     
     pc_proc()
@@ -245,7 +300,7 @@ public:
     }
     
     Eigen::Matrix4d cam1_base,cam2_base,cam1_cam2,cam2_cam1;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr merged_pc;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr merged_pc,filter_pc;
 
     void icp_algo(camera& cam1, camera& cam2);
 
@@ -278,6 +333,14 @@ private:
     double DistanceOfPointToLine(Eigen::Vector3d a, Eigen::Vector3d b, Eigen::Vector3d s);
     bool AngleJudge(Eigen::Vector3d a, Eigen::Vector3d b, Eigen::Vector3d c);
     tf::StampedTransform trans_12;
+
+    geometry_msgs::PointStamped point11,point12;
+    geometry_msgs::PointStamped point21,point22;
+    geometry_msgs::PointStamped point31,point32;
+    geometry_msgs::PointStamped point41,point42;
+    geometry_msgs::PointStamped point51,point52;
+    geometry_msgs::PointStamped point61,point62;
+
 };
 
 void pc_proc::icp_algo(camera& cam1, camera& cam2)
@@ -404,51 +467,231 @@ void pc_proc::merge_cloud(camera& cam1, camera& cam2)
 
     ROS_INFO("Merged PointCloud Size = %i ",merged_pc->width);
 
-    // // culled_pc：过滤机械臂自身点云并进行安全评级
-    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr culled_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
-    // cull_self(merged_pc,culled_pc);
+    // culled_pc：过滤机械臂自身点云并进行安全评级
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr culled_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
+    cull_self(merged_pc,culled_pc);
 
+    // 直通滤波过滤桌面及以下点云
+    filter_pc.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PassThrough<pcl::PointXYZRGB> pass1;
+    pass1.setInputCloud(culled_pc);
+    pass1.setFilterFieldName("z");
+    pass1.setFilterLimits(0.05, 1.30);
+    pass1.filter(*filter_pc);
 
+    filter_pc->height = 1;
+    filter_pc->width = filter_pc->points.size();
+    ROS_INFO("Passed Table PointCloud Size = %i ",filter_pc->width);
 }
+
+// void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cull_pc)
+// {
+//     tf::StampedTransform trans1, trans2, trans3, trans4, trans5, trans6;
+//     Eigen::Vector3d cp1, cp2, cp3, cp4, cp5, cp6;
+
+//     listener1->waitForTransform("/base_link", "/link_1",ros::Time(0.0),ros::Duration(1.0));
+//     listener1->lookupTransform("/base_link", "/link_1",ros::Time(0.0),trans1);
+//     listener2->waitForTransform("/base_link", "/link_2",ros::Time(0.0),ros::Duration(1.0));
+//     listener2->lookupTransform("/base_link", "/link_2",ros::Time(0.0),trans2);
+//     listener3->waitForTransform("/base_link", "/link_3",ros::Time(0.0),ros::Duration(1.0));
+//     listener3->lookupTransform("/base_link", "/link_3",ros::Time(0.0),trans3);
+//     listener4->waitForTransform("/base_link", "/link_4",ros::Time(0.0),ros::Duration(1.0));
+//     listener4->lookupTransform("/base_link", "/link_4",ros::Time(0.0),trans4);
+//     listener5->waitForTransform("/base_link", "/link_5",ros::Time(0.0),ros::Duration(1.0));
+//     listener5->lookupTransform("/base_link", "/link_5",ros::Time(0.0),trans5);
+//     listener6->waitForTransform("/base_link", "/link_6",ros::Time(0.0),ros::Duration(1.0));
+//     listener6->lookupTransform("/base_link", "/link_6",ros::Time(0.0),trans6);
+
+//     cp1[0] = double(trans1.getOrigin().x());
+//     cp1[1] = double(trans1.getOrigin().y());
+//     cp1[2] = double(trans1.getOrigin().z());
+
+//     cp2[0] = double(trans2.getOrigin().x());
+//     cp2[1] = double(trans2.getOrigin().y());
+//     cp2[2] = double(trans2.getOrigin().z());
+
+//     cp3[0] = double(trans3.getOrigin().x());
+//     cp3[1] = double(trans3.getOrigin().y());
+//     cp3[2] = double(trans3.getOrigin().z());
+
+//     cp4[0] = double(trans4.getOrigin().x());
+//     cp4[1] = double(trans4.getOrigin().y());
+//     cp4[2] = double(trans4.getOrigin().z());
+
+//     cp5[0] = double(trans5.getOrigin().x());
+//     cp5[1] = double(trans5.getOrigin().y());
+//     cp5[2] = double(trans5.getOrigin().z());
+
+//     cp6[0] = double(trans6.getOrigin().x());
+//     cp6[1] = double(trans6.getOrigin().y());
+//     cp6[2] = double(trans6.getOrigin().z());
+
+//     Eigen::Vector3d base(0.0, 0.0, 0.0);
+
+//     int obs_count1 = 0;
+//     int obs_count2 = 0;
+
+//     pcl::PointCloud<pcl::PointXYZRGB>::iterator index = merged_pc->begin();
+//     for(size_t i=0; i<merged_pc->size(); ++i)
+//     {
+//         Eigen::Vector3d c;
+//         c[0] = full_pc->points[i].x;
+//         c[1] = full_pc->points[i].y;
+//         c[2] = full_pc->points[i].z;
+
+//         double dis = sqrt(pow(c[0],2.0)+pow(c[1],2)+pow(c[2],2));
+
+//         if(dis > slow_dis1)
+//         {
+//           continue;
+//         }
+
+//         if(dis > slow_dis2)
+//         {
+//           obs_count1++;
+//           continue;
+//         }
+        
+//         double dis1 = DistanceOfPointToLine(base, cp1, c);
+//         if(dis1 < tlr1 && AngleJudge(c, base, cp1) && AngleJudge(c, cp1, base))
+//         {
+//           continue;
+//         }
+//         double dis2 = DistanceOfPointToLine(cp1, cp2, c);
+//         if(dis2 < tlr2 && AngleJudge(c, cp1, cp2) && AngleJudge(c, cp2, cp1))
+//         {
+//           continue;
+//         }
+//         double dis3 = DistanceOfPointToLine(cp2, cp3, c);
+//         if(dis3 < tlr3 && AngleJudge(c, cp2, cp3) && AngleJudge(c, cp3, cp2))
+//         {
+//           continue;
+//         }
+//         double dis4 = DistanceOfPointToLine(cp3, cp4, c);
+//         if(dis4 < tlr4 && AngleJudge(c, cp3, cp4) && AngleJudge(c, cp4, cp3))
+//         {
+//           continue;
+//         }
+//         double dis5 = DistanceOfPointToLine(cp4, cp5, c);
+//         if(dis5 < tlr5 && AngleJudge(c, cp4, cp5) && AngleJudge(c, cp5, cp4))
+//         {
+//           continue;
+//         }
+//         double dis6 = DistanceOfPointToLine(cp5, cp6, c);
+//         if(dis6 < tlr6 && AngleJudge(c, cp5, cp6) && AngleJudge(c, cp6, cp5))
+//         {
+//           continue;
+//         }
+
+//         if(dis < slow_dis2)
+//         {
+//           obs_count2++;
+//         }
+
+//         cull_pc->push_back(full_pc->points[i]);
+
+//     }
+
+//     cull_pc->height = 1;
+//     cull_pc->width = cull_pc->points.size();
+
+//     if(obs_count2 > danger_num2)
+//     {
+//         safe_status = 1;
+//         ROS_INFO("### 222-LEVEL SPEED DOWN ###");
+//     }
+//     else if(obs_count1 > danger_num1)
+//     {
+//         safe_status = 2;
+//         ROS_INFO("### 111-LEVEL SPEED DOWN ###");
+//     }
+//     else{
+//         safe_status = 3;
+//         ROS_INFO("### SAFE ###");
+//     }
+
+//     ROS_INFO("Slow_down 1 Num = %i ",obs_count1);
+//     ROS_INFO("Slow_down 2 Num (Self_Culled) = %i ",obs_count2);
+
+//     return;
+// }
 
 void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cull_pc)
 {
     tf::StampedTransform trans1, trans2, trans3, trans4, trans5, trans6;
-    Eigen::Vector3d cp1, cp2, cp3, cp4, cp5, cp6;
+    Eigen::Vector3d cp11, cp21, cp31, cp41, cp51, cp61, cp12, cp22, cp32, cp42, cp52, cp62;
 
+    geometry_msgs::PointStamped point11_base, point12_base;
     listener1->waitForTransform("/base_link", "/link_1",ros::Time(0.0),ros::Duration(1.0));
     listener1->lookupTransform("/base_link", "/link_1",ros::Time(0.0),trans1);
+    listener1->transformPoint("/base_link", point11, point11_base);
+    listener1->transformPoint("/base_link", point12, point12_base);
+    cp11[0] = point11_base.point.x;
+    cp11[1] = point11_base.point.y;
+    cp11[2] = point11_base.point.z;
+    cp12[0] = point12_base.point.x;
+    cp12[1] = point12_base.point.y;
+    cp12[2] = point12_base.point.z;
+
+    geometry_msgs::PointStamped point21_base, point22_base;
     listener2->waitForTransform("/base_link", "/link_2",ros::Time(0.0),ros::Duration(1.0));
     listener2->lookupTransform("/base_link", "/link_2",ros::Time(0.0),trans2);
+    listener2->transformPoint("/base_link", point21, point21_base);
+    listener2->transformPoint("/base_link", point22, point22_base);
+    cp21[0] = point21_base.point.x;
+    cp21[1] = point21_base.point.y;
+    cp21[2] = point21_base.point.z;
+    cp22[0] = point22_base.point.x;
+    cp22[1] = point22_base.point.y;
+    cp22[2] = point22_base.point.z;
+
+    geometry_msgs::PointStamped point31_base, point32_base;
     listener3->waitForTransform("/base_link", "/link_3",ros::Time(0.0),ros::Duration(1.0));
     listener3->lookupTransform("/base_link", "/link_3",ros::Time(0.0),trans3);
+    listener3->transformPoint("/base_link", point31, point31_base);
+    listener3->transformPoint("/base_link", point32, point32_base);
+    cp31[0] = point31_base.point.x;
+    cp31[1] = point31_base.point.y;
+    cp31[2] = point31_base.point.z;
+    cp32[0] = point32_base.point.x;
+    cp32[1] = point32_base.point.y;
+    cp32[2] = point32_base.point.z;
+
+    geometry_msgs::PointStamped point41_base, point42_base;
     listener4->waitForTransform("/base_link", "/link_4",ros::Time(0.0),ros::Duration(1.0));
     listener4->lookupTransform("/base_link", "/link_4",ros::Time(0.0),trans4);
+    listener4->transformPoint("/base_link", point41, point41_base);
+    listener4->transformPoint("/base_link", point42, point42_base);
+    cp41[0] = point41_base.point.x;
+    cp41[1] = point41_base.point.y;
+    cp41[2] = point41_base.point.z;
+    cp42[0] = point42_base.point.x;
+    cp42[1] = point42_base.point.y;
+    cp42[2] = point42_base.point.z;
+
+    geometry_msgs::PointStamped point51_base, point52_base;
     listener5->waitForTransform("/base_link", "/link_5",ros::Time(0.0),ros::Duration(1.0));
     listener5->lookupTransform("/base_link", "/link_5",ros::Time(0.0),trans5);
+    listener5->transformPoint("/base_link", point51, point51_base);
+    listener5->transformPoint("/base_link", point52, point52_base);
+    cp51[0] = point51_base.point.x;
+    cp51[1] = point51_base.point.y;
+    cp51[2] = point51_base.point.z;
+    cp52[0] = point52_base.point.x;
+    cp52[1] = point52_base.point.y;
+    cp52[2] = point52_base.point.z;
+
+    geometry_msgs::PointStamped point61_base, point62_base;
     listener6->waitForTransform("/base_link", "/link_6",ros::Time(0.0),ros::Duration(1.0));
     listener6->lookupTransform("/base_link", "/link_6",ros::Time(0.0),trans6);
-
-    cp1[0] = double(trans1.getOrigin().x());
-    cp1[1] = double(trans1.getOrigin().y());
-    cp1[2] = double(trans1.getOrigin().z());
-    cp2[0] = double(trans2.getOrigin().x());
-    cp2[1] = double(trans2.getOrigin().y());
-    cp2[2] = double(trans2.getOrigin().z());
-    cp3[0] = double(trans3.getOrigin().x());
-    cp3[1] = double(trans3.getOrigin().y());
-    cp3[2] = double(trans3.getOrigin().z());
-    cp4[0] = double(trans4.getOrigin().x());
-    cp4[1] = double(trans4.getOrigin().y());
-    cp4[2] = double(trans4.getOrigin().z());
-    cp5[0] = double(trans5.getOrigin().x());
-    cp5[1] = double(trans5.getOrigin().y());
-    cp5[2] = double(trans5.getOrigin().z());
-    cp6[0] = double(trans6.getOrigin().x());
-    cp6[1] = double(trans6.getOrigin().y());
-    cp6[2] = double(trans6.getOrigin().z());
-
-    Eigen::Vector3d base(0.0, 0.0, 0.0);
+    listener6->transformPoint("/base_link", point61, point61_base);
+    listener6->transformPoint("/base_link", point62, point62_base);
+    cp61[0] = point61_base.point.x;
+    cp61[1] = point61_base.point.y;
+    cp61[2] = point61_base.point.z;
+    cp62[0] = point62_base.point.x;
+    cp62[1] = point62_base.point.y;
+    cp62[2] = point62_base.point.z;
 
     int obs_count1 = 0;
     int obs_count2 = 0;
@@ -474,33 +717,33 @@ void pc_proc::cull_self(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &full_pc, p
           continue;
         }
         
-        double dis1 = DistanceOfPointToLine(base, cp1, c);
-        if(dis1 < tlr1 && AngleJudge(c, base, cp1) && AngleJudge(c, cp1, base))
+        double dis1 = DistanceOfPointToLine(cp11, cp12, c);
+        if(dis1 < tlr1 && AngleJudge(c, cp11, cp12) && AngleJudge(c, cp12, cp11))
         {
           continue;
         }
-        double dis2 = DistanceOfPointToLine(cp1, cp2, c);
-        if(dis2 < tlr2 && AngleJudge(c, cp1, cp2) && AngleJudge(c, cp2, cp1))
+        double dis2 = DistanceOfPointToLine(cp21, cp22, c);
+        if(dis2 < tlr2 && AngleJudge(c, cp21, cp22) && AngleJudge(c, cp22, cp21))
         {
           continue;
         }
-        double dis3 = DistanceOfPointToLine(cp2, cp3, c);
-        if(dis3 < tlr3 && AngleJudge(c, cp2, cp3) && AngleJudge(c, cp3, cp2))
+        double dis3 = DistanceOfPointToLine(cp31, cp32, c);
+        if(dis3 < tlr3 && AngleJudge(c, cp31, cp32) && AngleJudge(c, cp32, cp31))
         {
           continue;
         }
-        double dis4 = DistanceOfPointToLine(cp3, cp4, c);
-        if(dis4 < tlr4 && AngleJudge(c, cp3, cp4) && AngleJudge(c, cp4, cp3))
+        double dis4 = DistanceOfPointToLine(cp41, cp42, c);
+        if(dis4 < tlr4 && AngleJudge(c, cp41, cp42) && AngleJudge(c, cp42, cp41))
         {
           continue;
         }
-        double dis5 = DistanceOfPointToLine(cp4, cp5, c);
-        if(dis5 < tlr5 && AngleJudge(c, cp4, cp5) && AngleJudge(c, cp5, cp4))
+        double dis5 = DistanceOfPointToLine(cp51, cp52, c);
+        if(dis5 < tlr5 && AngleJudge(c, cp51, cp52) && AngleJudge(c, cp52, cp51))
         {
           continue;
         }
-        double dis6 = DistanceOfPointToLine(cp5, cp6, c);
-        if(dis6 < tlr6 && AngleJudge(c, cp5, cp6) && AngleJudge(c, cp6, cp5))
+        double dis6 = DistanceOfPointToLine(cp61, cp62, c);
+        if(dis6 < tlr6 && AngleJudge(c, cp61, cp62) && AngleJudge(c, cp62, cp61))
         {
           continue;
         }
@@ -763,7 +1006,7 @@ int main(int argc, char **argv)
     //     safe_status_publisher.publish(safe_msg);
 
         // 发布用于建图的最终结果点云
-        pcl::toROSMsg(*pc_fuser.merged_pc,merge_msg);  //之后改为最终的点云融合滤波结果
+        pcl::toROSMsg(*pc_fuser.filter_pc,merge_msg);  //之后改为最终的点云融合滤波结果
         merge_msg.header.frame_id = "base_link";
         merge_msg.header.stamp = ros::Time::now();
         merge_pub.publish(merge_msg);
